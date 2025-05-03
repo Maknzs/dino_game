@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Trex Runner Game</title>
+    <style>
+      body {
+        font-family: Monospace, Lucida;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+        margin: 0 auto;
+        background-color: #f7f7f7;
+        border: 1px solid #ccc;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="gameCanvas" width="800" height="300"></canvas>
+    <script>
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+
+      // source images for game
+      let trexImage1 = new Image();
+      trexImage1.src = "T-Rex1.png";
+
+      let trexImage2 = new Image();
+      trexImage2.src = "T-Rex2.png";
+
+      let cactusImage1 = new Image();
+      cactusImage1.src = "cactusImage1.png";
+
+      let cactusImage2 = new Image();
+      cactusImage2.src = "cactusImage2.png";
+
+      let pterodactyl = new Image();
+      pterodactyl.src = "Pterodactyl.png";
+
+      let cloudImage = new Image();
+      cloudImage.src = "cloud.png";
+
+      let starImage = new Image();
+      starImage.src = "Star.png";
+
+      let obstacles = []; // array of spawned obsticled
+      let clouds = []; // array of spawned clouds
+      let stars = []; // array of spawned stars
+      let trexFrame = 0; // trex image toggle
+      let isInvincible = false; // set invincible to no at start
+      let invincibleTimer = 0; // set invincible timer to 0 at start
+      let frameCount = 0;
+      let isGameOver = false;
+      let speed = 5; // initial game speed
+      let highScore = localStorage.getItem("highScore") || 0; // get high score from device
+      let obstaclesPased = 0; // count obsticles
+      let isNight = false; // day mode to start
+      let obstacleCooldown = 30; // 0.5 second before obsticles start on game launch
+
+      // initialize trex position
+      let trex = {
+        x: 50,
+        y: 260,
+        width: 40,
+        height: 40,
+        velocityY: 0,
+        gravity: 0.9,
+        isJumping: false,
+      };
+
+      // keyboard inputs
+      document.addEventListener("keydown", function (event) {
+        if (isGameOver && event.key === "r") {
+          resetGame();
+          return;
+        }
+
+        if (
+          (event.key === " " || event.key === "ArrowUp") &&
+          !trex.isJumping &&
+          !isGameOver
+        ) {
+          jump();
+        }
+      });
+
+      // mobile device inputs: tap to jump, tap to restart game if gameover
+      document.addEventListener("touchstart", function () {
+        if (isGameOver) {
+          resetGame();
+          return;
+        }
+
+        if (!trex.isJumping && !isGameOver) {
+          jump();
+        }
+      });
+
+      // trex jump
+      function jump() {
+        trex.isJumping = true;
+        trex.velocityY = -15; // changing this to -20 increases jump factor, fun to try
+      }
+
+      function update() {
+        if (isGameOver) return;
+
+        // gravity effect for jump function
+        trex.velocityY += trex.gravity;
+        trex.y += trex.velocityY;
+
+        // resets t-rex posiition post jump
+        if (trex.y >= 260) {
+          trex.y = 260;
+          trex.isJumping = false;
+          trex.velocityY = 0;
+        }
+
+        // obstacle movement
+        speed = 5 + frameCount / 1000; // increases obsticle speed with time
+        obstacles.forEach((obstacle, index) => {
+          obstacle.x -= speed;
+          if (obstacle.x + obstacle.width < 0) {
+            obstacles.splice(index, 1); // removes obsticle when off screen
+            obstaclesPased++;
+          }
+
+          // Check for collision, unless invincible
+          if (
+            !isInvincible &&
+            trex.x < obstacle.x + obstacle.width &&
+            trex.x + trex.width > obstacle.x &&
+            trex.y < obstacle.y + obstacle.height &&
+            trex.y + trex.height > obstacle.y
+          ) {
+            isGameOver = true;
+          }
+        });
+
+        // cloud movement slower than obsticles
+        cloudSpeed = 1 + frameCount / 2000; // increases cloud speed with time
+        clouds.forEach((cloud, index) => {
+          cloud.x -= cloudSpeed; // Clouds move slower than obstacles and
+          if (cloud.x + cloud.width < 0) {
+            clouds.splice(index, 1); // removes cloud when off screen
+          }
+        });
+
+        //star movements same as obsticles
+        stars.forEach((star, index) => {
+          star.x -= speed;
+          if (star.x + star.width < 0) {
+            stars.splice(index, 1);
+          }
+
+          // star collision with trex
+          if (
+            trex.x < star.x + star.width &&
+            trex.x + trex.width > star.x &&
+            trex.y < star.y + star.height &&
+            trex.y + trex.height > star.y
+          ) {
+            stars.splice(index, 1);
+            isInvincible = true;
+            invincibleTimer = 300; // 5 seconds invincible at 60fps
+          }
+        });
+
+        // invincible time logic & reset
+        if (isInvincible) {
+          invincibleTimer--;
+          if (invincibleTimer <= 0) {
+            isInvincible = false;
+          }
+        }
+      }
+
+      function draw() {
+        // draw canvas background based on day : night mode
+        ctx.fillStyle = isNight ? "#222" : "#f7f7f7";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // draw clouds
+        clouds.forEach((cloud) => {
+          ctx.drawImage(
+            cloudImage,
+            cloud.x,
+            cloud.y,
+            cloud.width,
+            cloud.height
+          );
+        });
+
+        // draw title & hint
+        ctx.fillStyle = "green";
+        ctx.font = "bold 20px Monospace";
+        ctx.fillText("T-Rex Runner Game!", canvas.width / 2 - 80, 40);
+        ctx.fillStyle = "black";
+        ctx.font = "bold 12px Monospace";
+        ctx.fillText(
+          "(Star = Invincible for 5 sec)",
+          canvas.width / 2 - 80,
+          60
+        );
+
+        // draw score, highscore, & obsticles passed
+        ctx.fillStyle = "#000";
+        ctx.font = "bold 16px Monospace";
+        ctx.fillText("Score: " + frameCount, 10, 20);
+        ctx.fillStyle = "red";
+        ctx.fillText("High Score: " + highScore, 10, 40);
+        ctx.fillStyle = "#000";
+        ctx.fillText("Obstacles Passed: " + obstaclesPased, 10, 60);
+
+        // draw trex, toggle between images for animation effect
+        const currentTrexImage = trexFrame === 0 ? trexImage1 : trexImage2;
+        ctx.drawImage(
+          currentTrexImage,
+          trex.x,
+          trex.y,
+          trex.width,
+          trex.height
+        );
+
+        // draw obstacles
+        obstacles.forEach((obstacle) => {
+          ctx.drawImage(
+            obstacle.image,
+            obstacle.x,
+            obstacle.y,
+            obstacle.width,
+            obstacle.height
+          );
+        });
+
+        // draw stars
+        stars.forEach((star) => {
+          ctx.drawImage(starImage, star.x, star.y, star.width, star.height);
+        });
+
+        // draw invincible shield on trex
+        if (isInvincible) {
+          ctx.strokeStyle = "gold";
+          ctx.lineWidth = 3;
+          ctx.strokeRect(
+            trex.x - 2,
+            trex.y - 2,
+            trex.width + 4,
+            trex.height + 1
+          );
+        }
+
+        // draw game over & restart instructions
+        if (isGameOver) {
+          ctx.fillStyle = "red";
+          ctx.font = "bold 30px Monospace";
+          ctx.fillText(
+            "Game Over!! Your Score: " + frameCount,
+            canvas.width / 2 - 220,
+            canvas.height / 2
+          );
+          ctx.fillStyle = "#000";
+          ctx.font = "bold 15px Monospace";
+          ctx.fillText(
+            "Press 'R' or tap to restart",
+            canvas.width / 2 - 100,
+            canvas.height / 2 + 30
+          );
+        }
+      }
+
+      function spawnObstacle() {
+        const type = Math.random() < 0.6 ? "ground" : "flying"; // randomly picks the obstacle type weighted toward ground
+
+        let obstacle = {
+          x: canvas.width,
+          width: 30,
+          height: 30,
+          type: type,
+          image: null,
+        };
+
+        if (type === "ground") {
+          obstacle.y = 270;
+          obstacle.image = Math.random() < 0.5 ? cactusImage1 : cactusImage2;
+        } else {
+          obstacle.y = 230;
+          obstacle.image = pterodactyl;
+        }
+
+        obstacles.push(obstacle);
+      }
+
+      // restart game logic
+      function resetGame() {
+        trex.y = 260;
+        trex.velocityY = 0;
+        trex.isJumping = false;
+
+        obstacles = [];
+        frameCount = 0;
+        obstaclesPased = 0;
+        obstacleCooldown = 60;
+        isGameOver = false;
+        isNight = false;
+
+        requestAnimationFrame(gameLoop); // Restart the loop
+      }
+
+      function gameLoop() {
+        frameCount++;
+
+        update();
+        draw();
+
+        //difficulty increases with framecount
+        difficulty = 0.001 + frameCount / 1000;
+
+        // trex image toggle logic
+        if (frameCount % 10 === 0) {
+          trexFrame = (trexFrame + 1) % 2;
+        }
+
+        // cloud spawn logic at random size
+        if (frameCount % 100 === 0) {
+          const scale = 0.5 + Math.random();
+          clouds.push({
+            x: canvas.width,
+            y: 30 + Math.random() * 50,
+            width: 80 * scale,
+            height: 40 * scale,
+          });
+        }
+
+        // night mode transition logic
+        if (frameCount % 1000 === 0) {
+          isNight = !isNight;
+        }
+
+        // obsticle spawn gap logic with difficulty factor
+        if (obstacleCooldown <= 0 && Math.random() < 0.02 * difficulty) {
+          spawnObstacle();
+          obstacleCooldown = 20 + Math.floor(Math.random() * (30 / difficulty)); // delay parameters
+        } else {
+          obstacleCooldown--;
+        }
+
+        // star spawn logic
+        if (frameCount % 800 === 0) {
+          stars.push({
+            x: canvas.width,
+            y: 200 + Math.random() * 40,
+            width: 30,
+            height: 30,
+          });
+        }
+
+        // game over logic & high score check
+        if (!isGameOver) {
+          requestAnimationFrame(gameLoop);
+          if (frameCount > highScore) {
+            highScore = frameCount;
+            localStorage.setItem("highScore", highScore);
+          }
+        }
+      }
+
+      requestAnimationFrame(gameLoop);
+    </script>
+  </body>
+</html>
