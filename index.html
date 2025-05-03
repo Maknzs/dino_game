@@ -193,14 +193,19 @@
           );
         });
 
-        // draw title & hint
+        // draw title & instructions
         ctx.fillStyle = "green";
         ctx.font = "bold 20px Monospace";
-        ctx.fillText("T-Rex Runner Game!", canvas.width / 2 - 80, 40);
+        ctx.fillText("T-Rex Runner Game!", canvas.width / 2 - 80, 20);
         ctx.fillStyle = "black";
         ctx.font = "bold 12px Monospace";
         ctx.fillText(
-          "(Star = Invincible for 5 sec)",
+          "Press The Space Bar or Up Arrow Key to Jump",
+          canvas.width / 2 - 120,
+          40
+        );
+        ctx.fillText(
+          "(Star = Invincible for 5 Sec)",
           canvas.width / 2 - 80,
           60
         );
